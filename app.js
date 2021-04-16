@@ -7,7 +7,7 @@ app.use(express.static('public'))
 var MongoClient = require('mongodb').MongoClient;
 //mongodb的端口号和数据库名字，如果数据库不存在会被创建
 var dburl = 'mongodb://localhost:27017';
-
+var ObjectId = require('mongodb').ObjectId;//Work
 /*-------------------------------------------------------------------- */
 
 var rtData = {    //用来保存温湿度
@@ -25,20 +25,46 @@ app.get('/set', (req, res) => {
         rtData.temp = req.query.temp;
         rtData.humi = req.query.humi;
     }
+    if((count++)==60){//一分钟记录一次数据库
+        count = 0;
+        addDate(rtData);
+    }
     returnData = {
         rtData: rtData,
         sqlData: sqlData
     }
 })
 app.post('/get', (req, res) => {
-    if((count++)==6){
-        count = 0;
-        addDate();
-    }
-    addDate();
+    
     getDate();
     res.type("application/json");
     res.jsonp(returnData);
+})
+app.post('/sql',(req,res)=>{
+    req.on('data',function(data){
+		let obj=JSON.parse(data);
+        //console.log("收到删除请求")
+		removeDate(obj);
+        //console.log("删除成功后")
+		//res.send('数据已删除')
+        getDate();
+        //console.log("更新数据")
+        res.type("application/json");
+        res.jsonp(returnData);
+	})
+})
+app.post('/save',(req,res)=>{
+    req.on('data',function(data){
+		let obj=JSON.parse(data);
+        //console.log("收到删除请求")
+		addDate(obj.rt);
+        //console.log("删除成功后")
+		//res.send('数据已删除')
+        getDate();
+        //console.log("更新数据")
+        res.type("application/json");
+        res.jsonp(returnData);
+	})
 })
 /*-------------------------------------------------------------------- */
 //数据库代码
@@ -62,15 +88,15 @@ function getDate(callback) {
     });
 }
 //增
-function addDate() {
-    console.log("进入addDate（）函数");
+function addDate(data) {
+    //console.log("进入addDate（）函数");
     // 标准动作，连接数据库之后然后对数据库进行CRUD操作
     const client = new MongoClient(dburl, { useNewUrlParser: true});
     client.connect(err => {
         const collection = client.db("stm32").collection("th");
         // perform actions on the collection object
-        collection.insertOne({ "temp": rtData.temp, "humi": rtData.humi }, function (err, result) {
-            console.log("执行addData()函数")
+        collection.insertOne(data, function (err, result) {
+            //console.log("执行addData()函数")
             //callback(result);
         });
         client.close();
@@ -78,15 +104,16 @@ function addDate() {
 }
 
 //删除
-function removeDate() {
-    //console.log("进入removeDate（）函数");
+function removeDate(id) {
+    //console.log("进入removeDate（）函数",id);
     // 标准动作，连接数据库之后然后对数据库进行CRUD操作
     const client = new MongoClient(dburl, { useNewUrlParser: true});
     client.connect(err => {
         const collection = client.db("stm32").collection("th");
         // perform actions on the collection object
-        collection.deleteOne({ a: 3 }, function (err, result) {
+        collection.findOneAndDelete({"_id":ObjectId(id._id)}, function (err, result) {
             //callback(result);
+            //console.log("删除成功")
         });
         client.close();
     });

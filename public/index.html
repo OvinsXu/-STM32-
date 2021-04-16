@@ -4,65 +4,111 @@
 <head>
     <title>温湿度</title>
     <meta charset="utf-8">
-    <script src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.staticfile.org/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://cdn.staticfile.org/jquery/2.1.1/jquery.min.js"></script>
+    <script src="https://cdn.staticfile.org/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.12"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
 </head>
 
 
 <body>
-    
-    <h3>实时温湿度</h3>
-    <div id="lblResponse" style="color: blue;margin: center;"></div>
-    <hr>
-    <div id="opt">
-        <button id="btn_add">保存到数据库</button>
-        <button id="btn_rm">删除</button>
-    </div>
-    <p>(5分钟自动保存一次数据)</p>
-    <h3>数据库数据</h3>
+    <div id="app">
+        <app-nav></app-nav>
+        <app-view>
+            <app-sidebar></app-sidebar>
+            <app-content>
+                <div style="color: blue;margin: center;">
+                    <p>温度:{{rtData.temp}}</p>
+                    <p>湿度:{{rtData.humi}}</p>
+                </div>
+                <hr>
+                <div>
+                    <button @click="saveDataToSQL()">手动保存到数据库</button>
+                </div>
+                <p>(一分钟自动保存一次数据)</p>
+                <div class=".container-fluid" >
+                    <div class="row" style="border:1px solid #ddd">
+                        <div class="col-xs-4">序号</div>
+                       <div class="col-xs-2">温度</div>      
+                       <div class="col-xs-2">湿度</div>      
+                    </div>
+                    <div v-for = "item in items" :key = "item._id" class="row" style="border:1px solid #ddd">
+                        <div class="col-xs-4" style="background-color: rgb(198, 134, 235);">{{item._id}}</div>
+                            <div class="col-xs-2" style="background-color: burlywood;">{{item.temp}}</div>
+                            <div class="col-xs-2" style="background-color: aqua;">{{item.humi}}</div>
+                            <button style="background-color: crimson;border:none" @click="deleteByID(item._id)">删除</button>
+                    </div>
+                </div>
 
-    <div>
-        <table id="Vue_div">
-            <tr>
-                <th>序号</th>
-                <th>温度</th>
-                <th>湿度</th>
-            </tr>
-            <tr v-for="item in items" :key="item._id">
-                <td>{{item._id}}</td>
-                <td>{{item.temp}}</td>
-                <td>{{item.humi}}</td>
-            </tr>
-        </table>
-    </div>
+            
 
+            </app-content>
+        </app-view>
+    </div>
 </body>
 <script type="text/javascript">
     new Vue({
-        el: '#Vue_div',
-        data: {
-            items: data.sqlData
-        }   
-        $(document).ready(function () {
-            setInterval(function () {
-                $.ajax({
-                    url: 'http://localhost:3000/get',
-                    data: '{}',
-                    dataType: "json",
-                    type: 'POST',
-                    success: function (data) {
-                        $('#lblResponse').html("温度:" + data.rtData.temp + "<br>湿度:" + data.rtData.humi);
-
-
-                    },
-                    error: function (xhr, status, error) {
-                        console.log('Error: ' + error.message);
-                        $('#lblResponse').html('Error connecting to the server.');
-                    },
-                });
-            }, 5000)
-
-        });
+        el: '#app',
+        data() {
+            return {
+                timer: null, //定时器名称
+                rtData: {},
+                items: []
+            }
+        },
+        methods: {
+            ajaxGetData() {
+                axios
+                    .post('http://localhost:3000/get')
+                    .then(response => {
+                        this.rtData = response.data.rtData
+                        this.items = response.data.sqlData
+                    })
+                    .catch(function (error) { // 请求失败处理
+                        console.log(error);
+                    });
+            },
+            deleteByID(id){
+                console.log("发送删除请求")
+                axios
+                    .post('http://localhost:3000/sql',{_id:id})
+                    .then(response => {
+                        //console.log("成功删除",response.data.sqlData[0].temp)
+                        this.items = response.data.sqlData
+                    })
+                    .catch(function (error) { // 请求失败处理
+                        console.log(error);
+                    });
+            },
+            saveDataToSQL(){
+                axios
+                .post('http://localhost:3000/save',{rt:this.rtData})
+                    .then(response => {
+                        
+                    })
+                    .catch(function (error) { // 请求失败处理
+                        console.log(error);
+                    });
+            }
+        },
+        //beforeCreate:function(){},                                    //创建前
+        created: function () {                                          //创建后
+        },
+        //beforeMount:function(){},                                     //挂载DOM前
+        mounted: function () {                                             //挂载DOM后
+            this.ajaxGetData();
+            this.timer = setInterval(() => {
+                setTimeout(this.ajaxGetData, 0)
+            }, 1000)
+        },
+        //beforeUpdate:function(){},                                    //视图更新前
+        //updated:function(){},                                         //视图更新后
+        //beforeDestroy:function(){},                                   //实例销毁之前调用
+        //destroyed:function(){}                                        //实例销毁后调用
 
     });
 </script>
